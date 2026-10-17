@@ -8,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .auth import is_valid_key
 from .models import (
     Airport,
     Disruption,
@@ -30,6 +31,18 @@ from .services import delay_stats
 from .tasks import compute_impact
 
 bp = Blueprint("api", __name__)
+
+
+@bp.before_request
+def require_api_key() -> tuple[Response, int] | None:
+    """Every endpoint except /health needs a valid X-API-Key header."""
+    if request.endpoint == "api.health":
+        return None
+    if not is_valid_key(request.headers.get("X-API-Key"), current_app.extensions["api_key_hashes"]):
+        response = jsonify({"error": "unauthorized", "message": "missing or invalid API key"})
+        response.headers["WWW-Authenticate"] = "ApiKey"
+        return response, 401
+    return None
 
 
 def db() -> Session:
