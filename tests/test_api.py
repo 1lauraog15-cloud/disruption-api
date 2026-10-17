@@ -72,8 +72,8 @@ def test_list_filter_resolve_and_actions(
     fid = make_flight(client, flight_payload)
     a = client.post("/disruptions", json={"flight_id": fid, "kind": "delay", "delay_minutes": 70}).get_json()["id"]
     client.post("/disruptions", json={"flight_id": fid, "kind": "cancellation"})
-    assert len(client.get("/disruptions").get_json()) == 2
-    assert len(client.get("/disruptions?kind=cancellation").get_json()) == 1
+    assert client.get("/disruptions").get_json()["total"] == 2
+    assert client.get("/disruptions?kind=cancellation").get_json()["total"] == 1
     assert client.get("/disruptions?status=bogus").status_code == 422
 
     act = client.post(f"/disruptions/{a}/actions", json={"action_type": "rebook", "note": "next flight"})
@@ -81,7 +81,7 @@ def test_list_filter_resolve_and_actions(
     assert client.post("/disruptions/999/actions", json={"action_type": "rebook"}).status_code == 404
 
     assert client.patch(f"/disruptions/{a}/resolve").get_json()["status"] == "resolved"
-    assert len(client.get("/disruptions?status=open").get_json()) == 1
+    assert client.get("/disruptions?status=open").get_json()["total"] == 1
 
 
 def test_stats_endpoint(client: FlaskClient, flight_payload: dict[str, object], delay_task: MagicMock) -> None:
@@ -101,3 +101,32 @@ def test_airport_create_conflict_and_validation(client: FlaskClient) -> None:
 def test_resolve_and_get_missing_disruption(client: FlaskClient) -> None:
     assert client.patch("/disruptions/77/resolve").status_code == 404
     assert client.get("/disruptions/77").status_code == 404
+
+
+def test_pagination_pages_and_total(
+    client: FlaskClient, flight_payload: dict[str, object], delay_task: MagicMock
+) -> None:
+    fid = make_flight(client, flight_payload)
+    for m in range(5):
+        client.post("/disruptions", json={"flight_id": fid, "kind": "delay", "delay_minutes": m})
+    first = client.get("/disruptions?limit=2").get_json()
+    assert [d["delay_minutes"] for d in first["items"]] == [0, 1]
+    assert (first["total"], first["limit"], first["offset"]) == (5, 2, 0)
+    last = client.get("/disruptions?limit=2&offset=4").get_json()
+    assert [d["delay_minutes"] for d in last["items"]] == [4] and last["total"] == 5
+    assert client.get("/disruptions?offset=10").get_json()["items"] == []
+
+
+def test_pagination_total_respects_filters(
+    client: FlaskClient, flight_payload: dict[str, object], delay_task: MagicMock
+) -> None:
+    fid = make_flight(client, flight_payload)
+    client.post("/disruptions", json={"flight_id": fid, "kind": "delay"})
+    client.post("/disruptions", json={"flight_id": fid, "kind": "cancellation"})
+    page = client.get("/disruptions?kind=delay&limit=1").get_json()
+    assert page["total"] == 1 and len(page["items"]) == 1
+
+
+@pytest.mark.parametrize("query", ["limit=0", "limit=201", "limit=abc", "offset=-1"])
+def test_pagination_rejects_bad_params(client: FlaskClient, query: str) -> None:
+    assert client.get(f"/disruptions?{query}").status_code == 422

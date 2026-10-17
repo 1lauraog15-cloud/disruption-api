@@ -56,3 +56,19 @@ class ActionOut(ActionIn):
     model_config = ConfigDict(from_attributes=True)
     id: int
     disruption_id: int
+
+
+class PageParams(BaseModel):
+    """Query string for GET /disruptions."""
+
+    limit: Annotated[int, Field(ge=1, le=200)] = 50
+    offset: Annotated[int, Field(ge=0)] = 0
+    status: str | None = None
+    kind: str | None = None
+
+
+class DisruptionPage(BaseModel):
+    items: list[DisruptionOut]
+    total: int
+    limit: int
+    offset: int
