@@ -19,6 +19,9 @@ project: Flask, SQLAlchemy 2.0, PostgreSQL, Alembic, Pydantic v2, Celery/Redis, 
 | POST | `/disruptions/<id>/actions` | log a recovery action (rebooking, crew swap...) |
 | GET | `/stats/delays` | median and p90 delay per origin airport (pandas) |
 
+All endpoints except `/health` require an `X-API-Key` header (`401` otherwise). Only SHA-256 hashes of
+the keys are configured, in `API_KEY_HASHES`. Create one with `python -m disruption_api.auth`.
+
 Errors are JSON: `422` for invalid input, `404` for missing resources, `409` for conflicts.
 
 ## How the pieces fit
@@ -59,4 +62,4 @@ Everything comes from environment variables (`DATABASE_URL`, `CELERY_BROKER_URL`
 ## Limits
 
 The impact estimate uses simple, documented assumptions (share of connecting passengers, severity
-by type and delay) and is not a real operations model. There is no authentication.
+by type and delay) and is not a real operations model. Authentication is a static API key per client, with no roles or rate limiting.
