@@ -1,0 +1,41 @@
+[project]
+name = "disruption-api"
+version = "0.1.0"
+description = "Demo REST API for airline disruption tracking (synthetic data)"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "pydantic>=2.7",
+    "celery>=5.4",
+    "redis>=5",
+    "psycopg[binary]>=3.2",
+    "pandas>=2.2",
+    "numpy>=2",
+    "gunicorn",
+]
+
+[dependency-groups]
+dev = ["pytest", "pytest-cov", "ruff", "mypy", "pandas-stubs"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+strict = true
+packages = ["disruption_api"]
+plugins = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--cov=disruption_api --cov-report=term-missing"
+
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*"]
+ignore_missing_imports = true
