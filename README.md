@@ -13,7 +13,7 @@ project: Flask, SQLAlchemy 2.0, PostgreSQL, Alembic, Pydantic v2, Celery/Redis, 
 | POST | `/flights` | create a flight (validated with Pydantic) |
 | GET | `/flights/<id>` | read a flight |
 | POST | `/disruptions` | record a disruption; returns `202` and queues the impact calculation |
-| GET | `/disruptions?status=&kind=&limit=` | list and filter |
+| GET | `/disruptions?status=&kind=&limit=&offset=` | list and filter, paginated (`limit` 1-200, default 50); returns `{items, total, limit, offset}` |
 | GET | `/disruptions/<id>` | read one |
 | PATCH | `/disruptions/<id>/resolve` | mark as resolved |
 | POST | `/disruptions/<id>/actions` | log a recovery action (rebooking, crew swap...) |

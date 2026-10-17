@@ -5,7 +5,7 @@ from typing import Any, TypeVar
 
 from flask import Blueprint, Response, current_app, g, jsonify, request
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .models import (
@@ -16,7 +16,16 @@ from .models import (
     Flight,
     RecoveryAction,
 )
-from .schemas import ActionIn, ActionOut, DisruptionIn, DisruptionOut, FlightIn, FlightOut
+from .schemas import (
+    ActionIn,
+    ActionOut,
+    DisruptionIn,
+    DisruptionOut,
+    DisruptionPage,
+    FlightIn,
+    FlightOut,
+    PageParams,
+)
 from .services import delay_stats
 from .tasks import compute_impact
 
@@ -110,17 +119,25 @@ def create_disruption() -> tuple[Response, int]:
 
 @bp.get("/disruptions")
 def list_disruptions() -> Response | tuple[Response, int]:
-    stmt = select(Disruption).order_by(Disruption.id)
     try:
-        if status := request.args.get("status"):
-            stmt = stmt.where(Disruption.status == DisruptionStatus(status))
-        if kind := request.args.get("kind"):
-            stmt = stmt.where(Disruption.kind == DisruptionKind(kind))
-    except ValueError:
-        return jsonify({"error": "validation_error", "message": "invalid status or kind"}), 422
-    limit = min(request.args.get("limit", 50, type=int), 200)
-    rows = db().scalars(stmt.limit(limit)).all()
-    return jsonify([DisruptionOut.model_validate(r).model_dump(mode="json") for r in rows])
+        page = PageParams.model_validate(request.args.to_dict())
+        conditions = []
+        if page.status:
+            conditions.append(Disruption.status == DisruptionStatus(page.status))
+        if page.kind:
+            conditions.append(Disruption.kind == DisruptionKind(page.kind))
+    except (ValidationError, ValueError):
+        return jsonify({"error": "validation_error", "message": "invalid status, kind, limit or offset"}), 422
+    total = db().scalar(select(func.count()).select_from(Disruption).where(*conditions)) or 0
+    rows = (
+        db()
+        .scalars(select(Disruption).where(*conditions).order_by(Disruption.id).limit(page.limit).offset(page.offset))
+        .all()
+    )
+    body = DisruptionPage(
+        items=[DisruptionOut.model_validate(r) for r in rows], total=total, limit=page.limit, offset=page.offset
+    )
+    return jsonify(body.model_dump(mode="json"))
 
 
 @bp.get("/disruptions/<int:disruption_id>")
