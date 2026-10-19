@@ -1,10 +1,13 @@
 """REST endpoints."""
 
 import json
-from typing import Any, TypeVar
+import logging
+from typing import TypeVar, cast
 
 from flask import Blueprint, Response, current_app, g, jsonify, request
+from kombu.exceptions import KombuError
 from pydantic import BaseModel, ValidationError
+from redis.exceptions import RedisError
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -21,6 +24,7 @@ from .models import (
 from .schemas import (
     ActionIn,
     ActionOut,
+    AirportIn,
     CascadeItem,
     CascadeOut,
     DisruptionIn,
@@ -33,13 +37,14 @@ from .schemas import (
 from .services import delay_stats
 from .tasks import compute_impact
 
+log = logging.getLogger(__name__)
 bp = Blueprint("api", __name__)
 PUBLIC_ENDPOINTS = {"api.health", "api.ready"}
 
 
 @bp.before_request
 def require_api_key() -> tuple[Response, int] | None:
-    """Every endpoint except /health needs a valid X-API-Key header."""
+    """Every endpoint except the health checks needs a valid X-API-Key header."""
     if request.endpoint in PUBLIC_ENDPOINTS:
         return None
     if not is_valid_key(request.headers.get("X-API-Key"), current_app.extensions["api_key_hashes"]):
@@ -52,7 +57,7 @@ def require_api_key() -> tuple[Response, int] | None:
 def db() -> Session:
     if "db" not in g:
         g.db = current_app.extensions["session_factory"]()
-    return g.db  # type: ignore[no-any-return]
+    return cast(Session, g.db)
 
 
 @bp.teardown_app_request
@@ -101,15 +106,12 @@ def ready() -> tuple[Response, int]:
 
 @bp.post("/airports")
 def create_airport() -> tuple[Response, int]:
-    data: dict[str, Any] = request.get_json(silent=True) or {}
-    iata = str(data.get("iata", "")).upper()
-    if len(iata) != 3 or not iata.isalpha():
-        return jsonify({"error": "validation_error", "message": "iata must be 3 letters"}), 422
-    if db().get(Airport, iata):
+    body = parse(AirportIn)
+    if db().get(Airport, body.iata):
         return jsonify({"error": "conflict", "message": "airport exists"}), 409
-    db().add(Airport(iata=iata, name=str(data.get("name", iata)), is_hub=bool(data.get("is_hub", False))))
+    db().add(Airport(iata=body.iata, name=body.name or body.iata, is_hub=body.is_hub))
     db().commit()
-    return jsonify({"iata": iata}), 201
+    return jsonify({"iata": body.iata}), 201
 
 
 @bp.post("/flights")
@@ -140,7 +142,11 @@ def create_disruption() -> tuple[Response, int]:
     disruption = Disruption(**body.model_dump())
     db().add(disruption)
     db().commit()
-    compute_impact.delay(disruption.id)  # impact is filled in asynchronously
+    try:
+        compute_impact.delay(disruption.id)  # impact is filled in asynchronously
+    except (KombuError, RedisError, OSError):
+        # The disruption is already saved; losing the queue must not turn a stored record into a 500.
+        log.exception("could not enqueue the impact task for disruption %s", disruption.id)
     return jsonify(DisruptionOut.model_validate(disruption).model_dump(mode="json")), 202
 
 

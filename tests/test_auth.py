@@ -26,7 +26,8 @@ def test_no_configured_keys_rejects_everything() -> None:
 
 def test_several_keys_can_be_valid() -> None:
     hashes = frozenset({hash_key("one"), hash_key("two")})
-    assert is_valid_key("one", hashes) and is_valid_key("two", hashes)
+    assert is_valid_key("one", hashes)
+    assert is_valid_key("two", hashes)
 
 
 @pytest.mark.parametrize("path", ["/health", "/health/ready"])

@@ -15,6 +15,8 @@ import urllib.request
 from typing import Any
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
+if not BASE.startswith(("http://", "https://")):
+    sys.exit("base URL must start with http:// or https://")
 KEY = os.environ["API_KEY"]
 TIMEOUT_S = 90
 
@@ -24,9 +26,9 @@ def call(method: str, path: str, body: dict[str, Any] | None = None, key: str | 
     headers = {"Content-Type": "application/json"}
     if key:
         headers["X-API-Key"] = key
-    req = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
+    req = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)  # noqa: S310  # nosec B310
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310  # nosec B310 (scheme checked at the top)
             return resp.status, json.loads(resp.read() or b"null")
     except urllib.error.HTTPError as err:
         return err.code, json.loads(err.read() or b"null")

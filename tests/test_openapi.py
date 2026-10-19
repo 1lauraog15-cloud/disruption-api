@@ -45,10 +45,12 @@ def test_openapi_json_is_public(anon_client: FlaskClient) -> None:
     resp = anon_client.get("/openapi.json")
     assert resp.status_code == 200
     body = resp.get_json()
-    assert body["openapi"].startswith("3.0") and "DisruptionPage" in body["components"]["schemas"]
+    assert body["openapi"].startswith("3.0")
+    assert "DisruptionPage" in body["components"]["schemas"]
     assert body["components"]["securitySchemes"]["ApiKeyAuth"]["name"] == "X-API-Key"
 
 
 def test_docs_page_is_public_and_points_to_spec(anon_client: FlaskClient) -> None:
     resp = anon_client.get("/docs")
-    assert resp.status_code == 200 and b"/openapi.json" in resp.data
+    assert resp.status_code == 200
+    assert b"/openapi.json" in resp.data

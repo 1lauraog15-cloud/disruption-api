@@ -3,11 +3,22 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 from .models import DisruptionKind, DisruptionStatus
 
 Iata = Annotated[str, Field(pattern=r"^[A-Z]{3}$")]
+
+
+class AirportIn(BaseModel):
+    iata: Iata
+    name: Annotated[str, Field(min_length=1, max_length=120)] | None = None
+    is_hub: StrictBool = False
+
+    @field_validator("iata", mode="before")
+    @classmethod
+    def upper_case(cls, v: object) -> object:
+        return v.upper() if isinstance(v, str) else v
 
 
 class FlightIn(BaseModel):

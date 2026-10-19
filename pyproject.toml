@@ -24,12 +24,14 @@ line-length = 120
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "SIM"]
+select = ["E", "F", "I", "B", "UP", "SIM", "S", "PT"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106"]
 
 [tool.mypy]
 strict = true
 packages = ["disruption_api"]
-plugins = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -37,5 +39,5 @@ pythonpath = ["."]
 addopts = "--cov=disruption_api --cov-report=term-missing"
 
 [[tool.mypy.overrides]]
-module = ["celery", "celery.*"]
+module = ["celery", "celery.*", "kombu", "kombu.*"]
 ignore_missing_imports = true
