@@ -48,3 +48,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t disruption-api .
+
+  e2e:
+    name: end-to-end (docker compose stack)
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create a throwaway API key
+        run: |
+          KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
+          echo "::add-mask::$KEY"
+          echo "API_KEY=$KEY" >> "$GITHUB_ENV"
+          echo "API_KEY_HASHES=$(printf '%s' "$KEY" | sha256sum | cut -d' ' -f1)" >> "$GITHUB_ENV"
+      - name: Start API, worker, PostgreSQL and Redis
+        run: |
+          docker compose up -d --build
+          docker compose exec -T api alembic upgrade head
+      - name: Smoke test through the real stack
+        run: python3 scripts/smoke_e2e.py
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=100
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
