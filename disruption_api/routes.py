@@ -5,7 +5,8 @@ from typing import Any, TypeVar
 
 from flask import Blueprint, Response, current_app, g, jsonify, request
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from .auth import is_valid_key
@@ -31,12 +32,13 @@ from .services import delay_stats
 from .tasks import compute_impact
 
 bp = Blueprint("api", __name__)
+PUBLIC_ENDPOINTS = {"api.health", "api.ready"}
 
 
 @bp.before_request
 def require_api_key() -> tuple[Response, int] | None:
     """Every endpoint except /health needs a valid X-API-Key header."""
-    if request.endpoint == "api.health":
+    if request.endpoint in PUBLIC_ENDPOINTS:
         return None
     if not is_valid_key(request.headers.get("X-API-Key"), current_app.extensions["api_key_hashes"]):
         response = jsonify({"error": "unauthorized", "message": "missing or invalid API key"})
@@ -83,6 +85,16 @@ def not_found(what: str) -> tuple[Response, int]:
 @bp.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@bp.get("/health/ready")
+def ready() -> tuple[Response, int]:
+    """Readiness: 200 only if the database answers. Public, like /health."""
+    try:
+        db().execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        return jsonify({"status": "unavailable", "database": "down"}), 503
+    return jsonify({"status": "ready", "database": "up"}), 200
 
 
 @bp.post("/airports")

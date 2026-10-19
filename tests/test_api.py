@@ -1,7 +1,9 @@
 from unittest.mock import MagicMock
 
 import pytest
+from flask import Flask
 from flask.testing import FlaskClient
+from sqlalchemy.exc import OperationalError
 
 pytestmark = pytest.mark.usefixtures("airports")
 
@@ -130,3 +132,21 @@ def test_pagination_total_respects_filters(
 @pytest.mark.parametrize("query", ["limit=0", "limit=201", "limit=abc", "offset=-1"])
 def test_pagination_rejects_bad_params(client: FlaskClient, query: str) -> None:
     assert client.get(f"/disruptions?{query}").status_code == 422
+
+
+def test_ready_reports_database_up(client: FlaskClient) -> None:
+    resp = client.get("/health/ready")
+    assert resp.status_code == 200 and resp.get_json() == {"status": "ready", "database": "up"}
+
+
+def test_ready_returns_503_when_database_is_down(app: Flask, client: FlaskClient) -> None:
+    class BrokenSession:
+        def execute(self, *_args: object, **_kwargs: object) -> None:
+            raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+        def close(self) -> None:
+            pass
+
+    app.extensions["session_factory"] = BrokenSession
+    resp = client.get("/health/ready")
+    assert resp.status_code == 503 and resp.get_json()["database"] == "down"
