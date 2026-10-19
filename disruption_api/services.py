@@ -1,6 +1,7 @@
 """Business logic kept apart from HTTP: impact estimate and delay statistics."""
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 import pandas as pd
 
@@ -43,3 +44,37 @@ def delay_stats(rows: list[tuple[str, int]]) -> list[dict[str, float | int | str
         {"origin": str(r.origin), "count": int(r["count"]), "p50": float(r.p50), "p90": float(r.p90)}
         for _, r in out.iterrows()
     ]
+
+
+MIN_TURNAROUND = timedelta(minutes=45)
+
+
+@dataclass(frozen=True)
+class Leg:
+    """One later flight of the same aircraft."""
+
+    flight_id: int
+    departure: datetime
+    arrival: datetime
+
+
+def propagate_delay(delay_minutes: int, arrival: datetime, later_legs: list[Leg]) -> list[tuple[int, int]]:
+    """Knock-on delays along an aircraft's rotation.
+
+    `arrival` is the scheduled arrival of the delayed flight and `later_legs` its following legs in
+    departure order. The slack before each leg (ground time beyond the minimum turnaround) absorbs
+    delay; whatever remains is passed on. Stops as soon as a leg absorbs all of it.
+    Returns (flight_id, delay_minutes) for each leg that ends up late.
+    """
+    result: list[tuple[int, int]] = []
+    delay = delay_minutes
+    previous_arrival = arrival
+    for leg in later_legs:
+        # A schedule tighter than the minimum turnaround has no slack, but it never adds delay by itself.
+        slack = max(0.0, (leg.departure - previous_arrival - MIN_TURNAROUND).total_seconds() / 60)
+        delay = max(0, round(delay - slack))
+        if delay == 0:
+            break
+        result.append((leg.flight_id, delay))
+        previous_arrival = leg.arrival
+    return result

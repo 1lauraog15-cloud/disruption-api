@@ -21,6 +21,8 @@ from .models import (
 from .schemas import (
     ActionIn,
     ActionOut,
+    CascadeItem,
+    CascadeOut,
     DisruptionIn,
     DisruptionOut,
     DisruptionPage,
@@ -171,6 +173,35 @@ def get_disruption(disruption_id: int) -> Response | tuple[Response, int]:
     if d is None:
         return not_found("disruption")
     return jsonify(DisruptionOut.model_validate(d).model_dump(mode="json"))
+
+
+@bp.get("/disruptions/<int:disruption_id>/cascade")
+def get_cascade(disruption_id: int) -> Response | tuple[Response, int]:
+    """Flights delayed as a knock-on of this disruption (same aircraft, later legs)."""
+    if db().get(Disruption, disruption_id) is None:
+        return not_found("disruption")
+    rows = (
+        db()
+        .execute(
+            select(Disruption, Flight)
+            .join(Flight, Disruption.flight_id == Flight.id)
+            .where(Disruption.parent_id == disruption_id)
+            .order_by(Flight.scheduled_departure)
+        )
+        .all()
+    )
+    items = [
+        CascadeItem(
+            disruption_id=d.id,
+            flight_id=f.id,
+            flight_number=f.number,
+            tail_number=f.tail_number,
+            delay_minutes=d.delay_minutes,
+        )
+        for d, f in rows
+    ]
+    body = CascadeOut(disruption_id=disruption_id, affected_flights=items, total=len(items))
+    return jsonify(body.model_dump(mode="json"))
 
 
 @bp.patch("/disruptions/<int:disruption_id>/resolve")
