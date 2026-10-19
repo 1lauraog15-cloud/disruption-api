@@ -21,7 +21,7 @@ jobs:
     env:
       DATABASE_URL: postgresql+psycopg://disruption:disruption@localhost:5432/disruption
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: check
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -t disruption-api .
 
   e2e:
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: check
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Create a throwaway API key
         run: |
           KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
