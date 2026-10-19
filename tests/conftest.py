@@ -9,8 +9,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from disruption_api import create_app
+from disruption_api.auth import hash_key
 from disruption_api.config import Settings
 from disruption_api.models import Airport, Base
+
+TEST_API_KEY = "test-key-not-a-secret"
 
 
 @pytest.fixture
@@ -29,12 +32,20 @@ def session(engine) -> Iterator[Session]:  # type: ignore[no-untyped-def]
 
 @pytest.fixture
 def app(engine) -> Flask:  # type: ignore[no-untyped-def]
-    settings = Settings("sqlite://", "memory://", "cache+memory://")
+    settings = Settings("sqlite://", "memory://", "cache+memory://", frozenset({hash_key(TEST_API_KEY)}))
     return create_app(settings, engine=engine)
 
 
 @pytest.fixture
 def client(app: Flask) -> FlaskClient:
+    """A client that already sends a valid API key."""
+    test_client = app.test_client()
+    test_client.environ_base["HTTP_X_API_KEY"] = TEST_API_KEY
+    return test_client
+
+
+@pytest.fixture
+def anon_client(app: Flask) -> FlaskClient:
     return app.test_client()
 
 
