@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -26,10 +29,14 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -r requirements.txt pytest pytest-cov ruff mypy pandas-stubs
+      - run: pip install -r requirements.txt pytest pytest-cov ruff mypy pandas-stubs bandit pip-audit
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy
+      - name: Security scan of the source (bandit)
+        run: bandit -q -r disruption_api migrations scripts
+      - name: Known vulnerabilities in dependencies (pip-audit)
+        run: pip-audit -r requirements.txt
       - name: Migrations apply to a real PostgreSQL and roll back
         run: |
           alembic upgrade head

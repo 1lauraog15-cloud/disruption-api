@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+- Uniform JSON errors (404, 405, 413, 409 on constraint violations, generic 500) and a 64 KB request-body limit.
+- `X-Content-Type-Options` and `Cache-Control: no-store` headers; Celery restricted to JSON serialization.
+- Airports are now validated with Pydantic (fixes `"is_hub": "false"` being stored as true, and unbounded names).
+- A broken queue no longer turns a saved disruption into a 500.
+- docker-compose binds ports to localhost; read-only workflow token; bandit and pip-audit in CI.
+
 ## [0.1.0] - 2026-10-19
 
 First release.

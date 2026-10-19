@@ -14,3 +14,7 @@ celery = Celery(
 )
 celery.conf.task_acks_late = True
 celery.conf.task_default_retry_delay = 5
+# Never accept pickled messages: only JSON can be deserialised from the broker.
+celery.conf.task_serializer = "json"
+celery.conf.result_serializer = "json"
+celery.conf.accept_content = ["json"]

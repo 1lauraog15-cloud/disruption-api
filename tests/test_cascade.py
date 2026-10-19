@@ -106,7 +106,8 @@ def test_other_aircraft_and_untailed_flights_are_untouched(session: Session, rot
     parent = record(session, rotation["XY1"], 60)
     apply_cascade(session, parent.id)
     touched = {d.flight_id for d in session.query(Disruption).filter(Disruption.parent_id == parent.id)}
-    assert rotation["XY9"].id not in touched and rotation["NOTAIL"].id not in touched
+    assert rotation["XY9"].id not in touched
+    assert rotation["NOTAIL"].id not in touched
 
 
 def test_cascade_is_idempotent(session: Session, rotation: dict[str, Flight]) -> None:
@@ -182,7 +183,8 @@ def test_cascade_endpoint_lists_knock_on_flights(client: FlaskClient, session: S
     d = client.post("/disruptions", json={"flight_id": ids[0], "kind": "delay", "delay_minutes": 60}).get_json()
     assert apply_cascade(session, d["id"])  # the task body, run in-process
     body = client.get(f"/disruptions/{d['id']}/cascade").get_json()
-    assert body["total"] == 1 and body["affected_flights"][0]["flight_number"] == "XY2"
+    assert body["total"] == 1
+    assert body["affected_flights"][0]["flight_number"] == "XY2"
     assert body["affected_flights"][0]["delay_minutes"] == 45
     assert body["affected_flights"][0]["tail_number"] == "EC-AAA"
     assert client.get(f"/disruptions/{body['affected_flights'][0]['disruption_id']}").get_json()["parent_id"] == d["id"]

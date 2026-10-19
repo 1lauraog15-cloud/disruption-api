@@ -105,6 +105,21 @@ Docker image.
 Everything comes from environment variables (`DATABASE_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`,
 `API_KEY_HASHES`); see `.env.example`. No secrets are committed.
 
+## Security
+
+What the project does:
+
+- API keys are never stored; only their SHA-256 hashes are configured, compared in constant time, and the check fails closed.
+- Every input is validated with Pydantic; database access goes through the SQLAlchemy ORM (no string-built SQL).
+- Request bodies are capped at 64 KB. Errors are uniform JSON; an unexpected error returns a generic `500` and is logged server-side only.
+- Responses carry `X-Content-Type-Options: nosniff` and JSON responses are `Cache-Control: no-store`.
+- Celery only accepts JSON messages (no pickle). The container runs as a non-root user, and `docker-compose.yml` binds the API, PostgreSQL and Redis to `127.0.0.1`.
+- CI runs `bandit` on the source and `pip-audit` on the dependencies, uses a read-only `GITHUB_TOKEN`, and `main` is protected: changes need a pull request with all checks green.
+
+What it does not do (deliberately out of scope for a demo): TLS termination (put it behind a reverse proxy or
+load balancer that provides HTTPS, since the key travels in a header), rate limiting, per-key permissions or
+rotation tooling, and the Swagger UI assets are loaded from a CDN without integrity hashes.
+
 ## Limits
 
 Only delays cascade (a cancellation or diversion does not re-plan the rotation), and the 45-minute turnaround is a fixed assumption. The impact estimate uses simple, documented assumptions (share of connecting passengers, severity by type and

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from .schemas import (
     ActionIn,
     ActionOut,
+    AirportIn,
     CascadeItem,
     CascadeOut,
     DisruptionIn,
@@ -27,6 +28,7 @@ MODELS: list[type[BaseModel]] = [
     DisruptionPage,
     ActionIn,
     ActionOut,
+    AirportIn,
     CascadeItem,
     CascadeOut,
 ]
@@ -68,15 +70,6 @@ def _components() -> dict[str, Any]:
             "type": "object",
             "properties": {"error": {"type": "string"}, "message": {"type": "string"}},
             "required": ["error"],
-        },
-        "AirportIn": {
-            "type": "object",
-            "properties": {
-                "iata": {"type": "string", "pattern": "^[A-Za-z]{3}$"},
-                "name": {"type": "string"},
-                "is_hub": {"type": "boolean", "default": False},
-            },
-            "required": ["iata"],
         },
         "DelayStat": {
             "type": "object",

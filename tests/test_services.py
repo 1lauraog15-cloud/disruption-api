@@ -6,7 +6,8 @@ from disruption_api.services import delay_stats, estimate_impact
 
 def test_short_delay_has_no_impact() -> None:
     impact = estimate_impact(K.DELAY, 30, 200, destination_is_hub=True)
-    assert impact.affected_connections == 0 and impact.score == 0.0
+    assert impact.affected_connections == 0
+    assert impact.score == 0.0
 
 
 def test_cancellation_hits_all_connections_at_hub() -> None:
@@ -27,7 +28,9 @@ def test_non_hub_has_fewer_connections() -> None:
 def test_delay_stats_percentiles() -> None:
     stats = delay_stats([("BCN", m) for m in (10, 20, 30, 40, 100)] + [("MAD", 15)])
     bcn = next(s for s in stats if s["origin"] == "BCN")
-    assert bcn["count"] == 5 and bcn["p50"] == 30.0 and bcn["p90"] == 76.0
+    assert bcn["count"] == 5
+    assert bcn["p50"] == 30.0
+    assert bcn["p90"] == 76.0
 
 
 def test_delay_stats_empty() -> None:
