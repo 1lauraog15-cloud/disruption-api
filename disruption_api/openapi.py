@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from .schemas import (
     ActionIn,
     ActionOut,
+    CascadeItem,
+    CascadeOut,
     DisruptionIn,
     DisruptionOut,
     DisruptionPage,
@@ -17,7 +19,17 @@ from .schemas import (
 
 docs = Blueprint("docs", __name__)
 
-MODELS: list[type[BaseModel]] = [FlightIn, FlightOut, DisruptionIn, DisruptionOut, DisruptionPage, ActionIn, ActionOut]
+MODELS: list[type[BaseModel]] = [
+    FlightIn,
+    FlightOut,
+    DisruptionIn,
+    DisruptionOut,
+    DisruptionPage,
+    ActionIn,
+    ActionOut,
+    CascadeItem,
+    CascadeOut,
+]
 
 SWAGGER_UI_VERSION = "5.17.14"
 
@@ -151,6 +163,13 @@ def build_spec() -> dict[str, Any]:
                     "summary": "Get a disruption",
                     "parameters": [_id_param("disruption_id")],
                     "responses": _responses("200", _ref("DisruptionOut"), "401", "404"),
+                },
+            },
+            "/disruptions/{disruption_id}/cascade": {
+                "get": {
+                    "summary": "Knock-on delays on the later flights of the same aircraft",
+                    "parameters": [_id_param("disruption_id")],
+                    "responses": _responses("200", _ref("CascadeOut"), "401", "404"),
                 },
             },
             "/disruptions/{disruption_id}/resolve": {

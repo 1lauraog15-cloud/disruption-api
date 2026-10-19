@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .models import DisruptionKind, DisruptionStatus
 
@@ -16,11 +16,21 @@ class FlightIn(BaseModel):
     destination: Iata
     scheduled_departure: datetime
     passengers: Annotated[int, Field(ge=0, le=900)]
+    tail_number: Annotated[str, Field(pattern=r"^[A-Z0-9-]{3,10}$")] | None = None
+    scheduled_arrival: datetime | None = None
 
-    @field_validator("scheduled_departure")
+    @field_validator("scheduled_departure", "scheduled_arrival")
     @classmethod
-    def to_naive_utc(cls, v: datetime) -> datetime:
-        return v.astimezone(UTC).replace(tzinfo=None) if v.tzinfo else v
+    def to_naive_utc(cls, v: datetime | None) -> datetime | None:
+        return v.astimezone(UTC).replace(tzinfo=None) if v is not None and v.tzinfo else v
+
+    @model_validator(mode="after")
+    def check_rotation_fields(self) -> "FlightIn":
+        if self.scheduled_arrival is not None and self.scheduled_arrival <= self.scheduled_departure:
+            raise ValueError("scheduled_arrival must be after scheduled_departure")
+        if self.tail_number is not None and self.scheduled_arrival is None:
+            raise ValueError("scheduled_arrival is required when tail_number is given")
+        return self
 
 
 class FlightOut(FlightIn):
@@ -45,6 +55,7 @@ class DisruptionOut(BaseModel):
     reason: str
     affected_connections: int | None
     impact_score: float | None
+    parent_id: int | None
 
 
 class ActionIn(BaseModel):
@@ -72,3 +83,17 @@ class DisruptionPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class CascadeItem(BaseModel):
+    disruption_id: int
+    flight_id: int
+    flight_number: str
+    tail_number: str | None
+    delay_minutes: int
+
+
+class CascadeOut(BaseModel):
+    disruption_id: int
+    affected_flights: list[CascadeItem]
+    total: int

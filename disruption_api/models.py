@@ -35,6 +35,10 @@ class Flight(Base):
     __table_args__ = (
         CheckConstraint("passengers >= 0", name="ck_flights_passengers_nonneg"),
         CheckConstraint("origin <> destination", name="ck_flights_origin_ne_dest"),
+        CheckConstraint(
+            "scheduled_arrival IS NULL OR scheduled_arrival > scheduled_departure",
+            name="ck_flights_arrival_after_departure",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -43,6 +47,9 @@ class Flight(Base):
     destination: Mapped[str] = mapped_column(ForeignKey("airports.iata"))
     scheduled_departure: Mapped[datetime] = mapped_column(DateTime)
     passengers: Mapped[int] = mapped_column(Integer, default=0)
+    # The aircraft flying this leg; flights sharing a tail number form its rotation.
+    tail_number: Mapped[str | None] = mapped_column(String(10), index=True, nullable=True)
+    scheduled_arrival: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     disruptions: Mapped[list["Disruption"]] = relationship(back_populates="flight")
 
@@ -66,6 +73,8 @@ class Disruption(Base):
     # Filled in by the background task after the disruption is created.
     affected_connections: Mapped[int | None] = mapped_column(Integer, nullable=True)
     impact_score: Mapped[float | None] = mapped_column(nullable=True)
+    # Set on knock-on disruptions: the disruption that caused this one.
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("disruptions.id"), index=True, nullable=True)
 
     flight: Mapped[Flight] = relationship(back_populates="disruptions")
     actions: Mapped[list["RecoveryAction"]] = relationship(back_populates="disruption")
