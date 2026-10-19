@@ -29,8 +29,9 @@ def test_several_keys_can_be_valid() -> None:
     assert is_valid_key("one", hashes) and is_valid_key("two", hashes)
 
 
-def test_health_is_public(anon_client: FlaskClient) -> None:
-    assert anon_client.get("/health").status_code == 200
+@pytest.mark.parametrize("path", ["/health", "/health/ready"])
+def test_health_endpoints_are_public(anon_client: FlaskClient, path: str) -> None:
+    assert anon_client.get(path).status_code == 200
 
 
 @pytest.mark.parametrize(

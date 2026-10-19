@@ -8,7 +8,8 @@ project: Flask, SQLAlchemy 2.0, PostgreSQL, Alembic, Pydantic v2, Celery/Redis, 
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` | liveness check |
+| GET | `/health` | liveness check (public) |
+| GET | `/health/ready` | readiness: `200` if the database answers, `503` otherwise (public) |
 | POST | `/airports` | register an airport (`iata`, `name`, `is_hub`) |
 | POST | `/flights` | create a flight (validated with Pydantic) |
 | GET | `/flights/<id>` | read a flight |
@@ -19,7 +20,7 @@ project: Flask, SQLAlchemy 2.0, PostgreSQL, Alembic, Pydantic v2, Celery/Redis, 
 | POST | `/disruptions/<id>/actions` | log a recovery action (rebooking, crew swap...) |
 | GET | `/stats/delays` | median and p90 delay per origin airport (pandas) |
 
-All endpoints except `/health` require an `X-API-Key` header (`401` otherwise). Only SHA-256 hashes of
+All endpoints except `/health` and `/health/ready` require an `X-API-Key` header (`401` otherwise). Only SHA-256 hashes of
 the keys are configured, in `API_KEY_HASHES`. Create one with `python -m disruption_api.auth`.
 
 Errors are JSON: `422` for invalid input, `404` for missing resources, `409` for conflicts.
@@ -50,7 +51,8 @@ pip install -r requirements.txt pytest pytest-cov ruff mypy pandas-stubs
 ruff check . && ruff format --check . && mypy && pytest
 ```
 
-Tests use in-memory SQLite and a mocked Celery `.delay`, so they need no services. A separate
+By default tests use in-memory SQLite and a mocked Celery `.delay`, so they need no services.
+Set `TEST_DATABASE_URL` to run the same suite on PostgreSQL (CI does both). A separate
 test runs the real Alembic migrations up and down. CI also applies the migrations to a real
 PostgreSQL service and builds the Docker image.
 

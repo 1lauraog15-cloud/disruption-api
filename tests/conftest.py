@@ -1,10 +1,11 @@
+import os
 from collections.abc import Iterator
 from unittest.mock import MagicMock
 
 import pytest
 from flask import Flask
 from flask.testing import FlaskClient
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -17,21 +18,31 @@ TEST_API_KEY = "test-key-not-a-secret"
 
 
 @pytest.fixture
-def engine():  # type: ignore[no-untyped-def]
-    eng = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+def engine() -> Iterator[Engine]:
+    """In-memory SQLite by default; a real PostgreSQL when TEST_DATABASE_URL is set (used in CI)."""
+    url = os.environ.get("TEST_DATABASE_URL")
+    if url:
+        eng = create_engine(url)
+        Base.metadata.drop_all(eng)
+    else:
+        eng = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     Base.metadata.create_all(eng)
     yield eng
     eng.dispose()
+    if url:
+        cleanup = create_engine(url)
+        Base.metadata.drop_all(cleanup)
+        cleanup.dispose()
 
 
 @pytest.fixture
-def session(engine) -> Iterator[Session]:  # type: ignore[no-untyped-def]
+def session(engine: Engine) -> Iterator[Session]:
     with sessionmaker(bind=engine, expire_on_commit=False)() as s:
         yield s
 
 
 @pytest.fixture
-def app(engine) -> Flask:  # type: ignore[no-untyped-def]
+def app(engine: Engine) -> Flask:
     settings = Settings("sqlite://", "memory://", "cache+memory://", frozenset({hash_key(TEST_API_KEY)}))
     return create_app(settings, engine=engine)
 
