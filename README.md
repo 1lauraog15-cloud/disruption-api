@@ -110,3 +110,7 @@ Everything comes from environment variables (`DATABASE_URL`, `CELERY_BROKER_URL`
 Only delays cascade (a cancellation or diversion does not re-plan the rotation), and the 45-minute turnaround is a fixed assumption. The impact estimate uses simple, documented assumptions (share of connecting passengers, severity by type and
 delay) and is not a real operations model. Authentication is one static key per client, with no roles or rate
 limiting.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Release notes are in [CHANGELOG.md](CHANGELOG.md).
